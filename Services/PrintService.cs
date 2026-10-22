@@ -17,8 +17,8 @@ namespace PrintBatcher.Services;
 /// verb, the same mechanism Explorer's right-click "Print" uses, and follows
 /// that printer's current driver defaults since no universal API exists to
 /// inject print options into an arbitrary third-party app's print flow.
-/// Jobs are fired one after another with no wait on spooler state or on the
-/// source app closing, so a batch sends as fast as the OS can launch each one.
+/// Jobs are fired one after another with no wait at all: each handler is
+/// launched and we move straight to the next file as soon as it's sent.
 /// </summary>
 public class PrintService
 {
@@ -134,8 +134,7 @@ public class PrintService
                 CreateNoWindow = true,
             };
 
-            // Fire-and-forget: launch the handler and move straight to the next job,
-            // with no wait on the spooler or on the app closing.
+            // Fire-and-forget: launch the handler and move straight to the next job.
             Process.Start(psi);
         }
 
