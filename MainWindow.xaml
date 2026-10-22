@@ -1,0 +1,223 @@
+﻿<Window x:Class="PrintBatcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PrintBatcher"
+        xmlns:conv="clr-namespace:PrintBatcher.Converters"
+        xmlns:vm="clr-namespace:PrintBatcher.ViewModels"
+        mc:Ignorable="d"
+        Title="PrintBatcher" Height="620" Width="960" MinHeight="500" MinWidth="760"
+        Icon="Assets/PrintBatcher.ico"
+        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver"
+        Background="#F3F5F8">
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+    <Window.Resources>
+        <conv:StatusToColorConverter x:Key="StatusToColorConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- Large icon+label tile button, styled after the source app's sidebar buttons -->
+        <Style x:Key="TileButton" TargetType="Button">
+            <Setter Property="Background" Value="#1E6FD9" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" x:Name="Bd">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TileButtonSecondary" TargetType="Button" BasedOn="{StaticResource TileButton}">
+            <Setter Property="Background" Value="#5B86B8" />
+        </Style>
+        <Style x:Key="TileIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="TileLabel" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style x:Key="ToolbarIconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="#2A3340" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ===== Left sidebar ===== -->
+        <StackPanel Grid.Column="0">
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Height="90" Style="{StaticResource TileButton}"
+                        Command="{Binding AddFilesCommand}" ToolTip="Belge Ekle">
+                    <StackPanel>
+                        <TextBlock Text="&#xE8A5;" Style="{StaticResource TileIcon}" />
+                        <TextBlock Text="Belge Ekle" Style="{StaticResource TileLabel}" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Height="90" Style="{StaticResource TileButton}"
+                        Command="{Binding AddFolderCommand}" ToolTip="Klasör Ekle">
+                    <StackPanel>
+                        <TextBlock Text="&#xE838;" Style="{StaticResource TileIcon}" />
+                        <TextBlock Text="Klasör Ekle" Style="{StaticResource TileLabel}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Border Background="White" CornerRadius="4" Padding="12" Margin="0,0,0,8"
+                    BorderBrush="#DCE1E8" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="YAZICI SEÇ" FontSize="11" FontWeight="Bold" Foreground="#6B7684" Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding Printers}" SelectedItem="{Binding SelectedPrinter}" />
+                    <Button Command="{Binding PrinterPropertiesCommand}" HorizontalAlignment="Left"
+                            Background="Transparent" BorderThickness="0" Padding="0" Margin="0,8,0,0" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,5,0" Foreground="#1E6FD9" />
+                            <TextBlock Text="Yazıcı Özellikleri" Foreground="#1E6FD9" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Height="80" Style="{StaticResource TileButtonSecondary}"
+                        Command="{Binding OpenSettingsCommand}" ToolTip="Ayarlar">
+                    <StackPanel>
+                        <TextBlock Text="&#xE713;" Style="{StaticResource TileIcon}" />
+                        <TextBlock Text="Ayarlar" Style="{StaticResource TileLabel}" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Height="80" Style="{StaticResource TileButton}"
+                        Command="{Binding StartCommand}" ToolTip="Yazdır">
+                    <StackPanel>
+                        <TextBlock Text="&#xE749;" Style="{StaticResource TileIcon}" />
+                        <TextBlock Text="Yazdır" Style="{StaticResource TileLabel}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <Border Background="White" CornerRadius="4" Padding="12"
+                    BorderBrush="#DCE1E8" BorderThickness="1" MinHeight="100">
+                <StackPanel>
+                    <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Foreground="#4A5563" />
+                    <TextBlock Margin="0,8,0,0" Foreground="#4A5563">
+                        <Run Text="{Binding CompletedCount, Mode=OneWay}" />
+                        <Run Text=" / " />
+                        <Run Text="{Binding Jobs.Count, Mode=OneWay}" />
+                        <Run Text=" tamamlandı" />
+                    </TextBlock>
+                    <Button Content="İptal" Command="{Binding CancelCommand}" Margin="0,10,0,0"
+                            HorizontalAlignment="Left" Padding="10,4" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Right: document list ===== -->
+        <Border Grid.Column="2" Background="White" CornerRadius="4" BorderBrush="#DCE1E8" BorderThickness="1">
+            <DockPanel Margin="10">
+
+                <DockPanel DockPanel.Dock="Top" Margin="2,2,2,8">
+                    <TextBlock Text="BELGE LİSTESİ" FontWeight="Bold" Foreground="#2A3340" VerticalAlignment="Center" DockPanel.Dock="Left" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ToolbarIconButton}" Command="{Binding RemoveCheckedCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" Margin="0,0,5,0" />
+                                <TextBlock Text="Öğeleri Sil" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarIconButton}" Command="{Binding ClearAllCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" Margin="0,0,5,0" />
+                                <TextBlock Text="Listeyi Temizle" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarIconButton}" Command="{Binding ExportListCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" Margin="0,0,5,0" />
+                                <TextBlock Text="Dışa Aktar" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarIconButton}" Command="{Binding ImportListCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" Margin="0,0,5,0" />
+                                <TextBlock Text="İçe Aktar" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid>
+                    <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}"
+                              AutoGenerateColumns="False" CanUserAddRows="False"
+                              GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                              RowHeaderWidth="0" BorderThickness="0"
+                              AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Binding="{Binding IsSelected}" Width="32" />
+                            <DataGridTextColumn Header="İsim" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Eklenme Tarihi" Binding="{Binding DateAdded, StringFormat='dd.MM.yyyy HH:mm'}" Width="150" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Tür" Binding="{Binding Extension}" Width="70" IsReadOnly="True" />
+                            <DataGridTemplateColumn Header="Durum" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Status}" Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Kopya" Binding="{Binding Copies}" Width="60" />
+                            <DataGridTextColumn Header="Hata" Binding="{Binding ErrorMessage}" Width="2*" IsReadOnly="True" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"
+                                Visibility="{Binding HasNoJobs, Converter={StaticResource BoolToVis}}">
+                        <Border BorderBrush="#C7CEDA" BorderThickness="2" CornerRadius="6" Padding="40,30">
+                            <StackPanel>
+                                <TextBlock Text="&#xE8B5;" FontFamily="Segoe MDL2 Assets" FontSize="34" HorizontalAlignment="Center" Foreground="#AEB8C4" />
+                                <TextBlock Text="Dosyalarınızı buraya bırakın" HorizontalAlignment="Center" Margin="0,10,0,0" Foreground="#8A94A3" />
+                                <TextBlock Text="veya menüden ekleyin" HorizontalAlignment="Center" Foreground="#8A94A3" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
