@@ -2,9 +2,11 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.IO;
+using System.Printing;
 using PrintBatcher.Models;
 using DuplexMode = PrintBatcher.Models.DuplexMode;
 using ScaleMode = PrintBatcher.Models.ScaleMode;
+using PageOrientation = PrintBatcher.Models.PageOrientation;
 
 namespace PrintBatcher.Services;
 
@@ -24,7 +26,8 @@ public class PrintService
         ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff"
     };
 
-    private static readonly TimeSpan ShellPrintTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan SpoolDetectionTimeout = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan SpoolPollInterval = TimeSpan.FromMilliseconds(150);
 
     public static IReadOnlyList<string> GetInstalledPrinters()
     {
@@ -119,9 +122,14 @@ public class PrintService
 
     private static async Task PrintViaShellAsync(string filePath, string printerName, int copies, CancellationToken token)
     {
+        using var server = new PrintServer();
+        using var queue = server.GetPrintQueue(printerName);
+
         for (int i = 0; i < Math.Max(1, copies); i++)
         {
             token.ThrowIfCancellationRequested();
+
+            int baselineJobId = GetMaxJobId(queue);
 
             var psi = new ProcessStartInfo
             {
@@ -133,21 +141,64 @@ public class PrintService
                 CreateNoWindow = true,
             };
 
-            using var process = Process.Start(psi);
-            if (process is null)
-                continue; // the shell dispatched it to an already-running instance; nothing more to wait on
+            // Fire-and-forget: the viewer app only needs to live long enough to hand the
+            // job to the spooler. We don't wait for it to fully close (some apps, e.g.
+            // Word, stay open), which is what made batches crawl one file at a time.
+            Process.Start(psi);
+
+            await WaitForJobToReachSpoolerAsync(queue, baselineJobId, token);
+        }
+    }
+
+    private static int GetMaxJobId(PrintQueue queue)
+    {
+        try
+        {
+            queue.Refresh();
+            int max = 0;
+            using var jobs = queue.GetPrintJobInfoCollection();
+            foreach (PrintSystemJobInfo job in jobs)
+                max = Math.Max(max, job.JobIdentifier);
+            return max;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Polls the printer's queue until a job newer than <paramref name="baselineJobId"/>
+    /// shows up, then returns immediately so the next file can be sent — instead of
+    /// waiting for the source application to finish printing or close.
+    /// </summary>
+    private static async Task WaitForJobToReachSpoolerAsync(PrintQueue queue, int baselineJobId, CancellationToken token)
+    {
+        var deadline = DateTime.UtcNow + SpoolDetectionTimeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            token.ThrowIfCancellationRequested();
 
             try
             {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-                cts.CancelAfter(ShellPrintTimeout);
-                await process.WaitForExitAsync(cts.Token);
+                queue.Refresh();
+                using var jobs = queue.GetPrintJobInfoCollection();
+                foreach (PrintSystemJobInfo job in jobs)
+                {
+                    if (job.JobIdentifier > baselineJobId)
+                        return;
+                }
             }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            catch
             {
-                // The source app did not close on its own (common for Office apps left open);
-                // the job was already handed to the spooler by this point, so we move on.
+                // Transient spooler/RPC hiccup: keep polling until the deadline.
             }
+
+            await Task.Delay(SpoolPollInterval, token);
         }
+
+        // Fallback: the app may not use the spooler the way we expect (rare), or it was
+        // simply too slow to launch. Move on rather than stalling the whole batch.
     }
 }
