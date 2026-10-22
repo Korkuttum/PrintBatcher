@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.IO;
-using System.Printing;
 using PrintBatcher.Models;
 using DuplexMode = PrintBatcher.Models.DuplexMode;
 using ScaleMode = PrintBatcher.Models.ScaleMode;
@@ -18,6 +17,8 @@ namespace PrintBatcher.Services;
 /// verb, the same mechanism Explorer's right-click "Print" uses, and follows
 /// that printer's current driver defaults since no universal API exists to
 /// inject print options into an arbitrary third-party app's print flow.
+/// Jobs are fired one after another with no wait on spooler state or on the
+/// source app closing, so a batch sends as fast as the OS can launch each one.
 /// </summary>
 public class PrintService
 {
@@ -25,9 +26,6 @@ public class PrintService
     {
         ".bmp", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff"
     };
-
-    private static readonly TimeSpan SpoolDetectionTimeout = TimeSpan.FromSeconds(12);
-    private static readonly TimeSpan SpoolPollInterval = TimeSpan.FromMilliseconds(150);
 
     public static IReadOnlyList<string> GetInstalledPrinters()
     {
@@ -120,16 +118,11 @@ public class PrintService
         doc.Print();
     }
 
-    private static async Task PrintViaShellAsync(string filePath, string printerName, int copies, CancellationToken token)
+    private static Task PrintViaShellAsync(string filePath, string printerName, int copies, CancellationToken token)
     {
-        using var server = new PrintServer();
-        using var queue = server.GetPrintQueue(printerName);
-
         for (int i = 0; i < Math.Max(1, copies); i++)
         {
             token.ThrowIfCancellationRequested();
-
-            int baselineJobId = GetMaxJobId(queue);
 
             var psi = new ProcessStartInfo
             {
@@ -141,64 +134,11 @@ public class PrintService
                 CreateNoWindow = true,
             };
 
-            // Fire-and-forget: the viewer app only needs to live long enough to hand the
-            // job to the spooler. We don't wait for it to fully close (some apps, e.g.
-            // Word, stay open), which is what made batches crawl one file at a time.
+            // Fire-and-forget: launch the handler and move straight to the next job,
+            // with no wait on the spooler or on the app closing.
             Process.Start(psi);
-
-            await WaitForJobToReachSpoolerAsync(queue, baselineJobId, token);
-        }
-    }
-
-    private static int GetMaxJobId(PrintQueue queue)
-    {
-        try
-        {
-            queue.Refresh();
-            int max = 0;
-            using var jobs = queue.GetPrintJobInfoCollection();
-            foreach (PrintSystemJobInfo job in jobs)
-                max = Math.Max(max, job.JobIdentifier);
-            return max;
-        }
-        catch
-        {
-            return 0;
-        }
-    }
-
-    /// <summary>
-    /// Polls the printer's queue until a job newer than <paramref name="baselineJobId"/>
-    /// shows up, then returns immediately so the next file can be sent — instead of
-    /// waiting for the source application to finish printing or close.
-    /// </summary>
-    private static async Task WaitForJobToReachSpoolerAsync(PrintQueue queue, int baselineJobId, CancellationToken token)
-    {
-        var deadline = DateTime.UtcNow + SpoolDetectionTimeout;
-
-        while (DateTime.UtcNow < deadline)
-        {
-            token.ThrowIfCancellationRequested();
-
-            try
-            {
-                queue.Refresh();
-                using var jobs = queue.GetPrintJobInfoCollection();
-                foreach (PrintSystemJobInfo job in jobs)
-                {
-                    if (job.JobIdentifier > baselineJobId)
-                        return;
-                }
-            }
-            catch
-            {
-                // Transient spooler/RPC hiccup: keep polling until the deadline.
-            }
-
-            await Task.Delay(SpoolPollInterval, token);
         }
 
-        // Fallback: the app may not use the spooler the way we expect (rare), or it was
-        // simply too slow to launch. Move on rather than stalling the whole batch.
+        return Task.CompletedTask;
     }
 }

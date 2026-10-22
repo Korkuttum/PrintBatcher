@@ -1,5 +1,5 @@
 #define MyAppName "PrintBatcher"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "PrintBatcher"
 #define MyAppExeName "PrintBatcher.exe"
 
