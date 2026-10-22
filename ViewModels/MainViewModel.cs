@@ -253,10 +253,9 @@ public class MainViewModel : ViewModelBase
 
                     await _printService.PrintAsync(job.FilePath, SelectedPrinter, job.Copies, Settings, _printCts.Token);
 
-                    // We only know the job was handed to the printer, not that it actually
-                    // finished printing (the source app could still crash afterwards) — so
-                    // the status reflects "sent", never a falsely confident "done".
-                    job.Status = PrintStatus.Printing;
+                    // Status flips to Done only here, right after the job is actually
+                    // sent — never before, and never while still in flight.
+                    job.Status = PrintStatus.Done;
 
                     if (Settings.RemovePrintedFromList)
                         Jobs.Remove(job);

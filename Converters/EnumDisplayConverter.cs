@@ -27,6 +27,12 @@ public class EnumDisplayConverter : IValueConverter
             ScaleMode.FitToPage => "Sayfaya Sığdır",
             ScaleMode.Custom => "Özel Oran",
 
+            PrintStatus.Pending => "Bekliyor",
+            PrintStatus.Printing => "Gönderiliyor",
+            PrintStatus.Done => "Yazdırıldı",
+            PrintStatus.Failed => "Hata",
+            PrintStatus.Skipped => "Atlandı",
+
             _ => value?.ToString() ?? string.Empty
         };
     }

@@ -16,6 +16,7 @@
     </Window.DataContext>
     <Window.Resources>
         <conv:StatusToColorConverter x:Key="StatusToColorConverter" />
+        <conv:EnumDisplayConverter x:Key="EnumDisplay" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <!-- Large icon+label tile button, styled after the source app's sidebar buttons -->
@@ -197,7 +198,7 @@
                             <DataGridTemplateColumn Header="Durum" Width="100">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding Status}" Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Status, Converter={StaticResource EnumDisplay}}" Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}" VerticalAlignment="Center" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
